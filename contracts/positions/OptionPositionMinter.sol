@@ -64,4 +64,24 @@ contract OptionPositionMinter is
       return super.supportsInterface(interfaceId);
   }
 
+  /// @notice Returns the tokenIds owned by a wallet
+  /// @param owner wallet owner
+  function positionsOfOwner(address owner)
+      public
+      view
+      returns (uint256[] memory tokenIds)
+  {
+    uint256 ownerTokenCount = balanceOf(owner);
+
+    tokenIds = new uint256[](ownerTokenCount);
+    uint256 start;
+    uint256 idx;
+
+    while (start < ownerTokenCount) {
+        uint256 tokenId = tokenOfOwnerByIndex(owner, idx);
+        tokenIds[start] = tokenId;
+        ++start;
+        ++idx;
+    }
+  }
 }

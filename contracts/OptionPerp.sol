@@ -3,16 +3,15 @@ pragma solidity ^0.8.9;
 
 import {IERC20} from "./interface/IERC20.sol";
 import {SafeERC20} from "./libraries/SafeERC20.sol";
-import {ILpPositionMinter} from "./interface/ILpPositionMinter.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {PerpPositionMinter} from "./positions/PerpPositionMinter.sol";
-import {OptionPositionMinter} from "./positions/OptionPositionMinter.sol";
-
 import {Pausable} from "./helpers/Pausable.sol";
 
+import {ILpPositionMinter} from "./interface/ILpPositionMinter.sol";
+import {IPerpPositionMinter} from "./interface/IPerpPositionMinter.sol";
+import {IOptionPositionMinter} from "./interface/IOptionPositionMinter.sol";
 import {IOptionPricing} from "./interface/IOptionPricing.sol";
 import {IVolatilityOracle} from "./interface/IVolatilityOracle.sol";
 import {IPriceOracle} from "./interface/IPriceOracle.sol";
@@ -73,8 +72,8 @@ contract OptionPerp is Ownable, Pausable {
 
   ILpPositionMinter public quoteLpPositionMinter;
   ILpPositionMinter public baseLpPositionMinter;
-  PerpPositionMinter public perpPositionMinter;
-  OptionPositionMinter public optionPositionMinter;
+  IPerpPositionMinter public perpPositionMinter;
+  IOptionPositionMinter public optionPositionMinter;
 
   IGmxRouter public gmxRouter;
   IGmxHelper public gmxHelper;
@@ -267,6 +266,8 @@ contract OptionPerp is Ownable, Pausable {
     address _gmxHelper,
     address _quoteLpPositionMinter,
     address _baseLpPositionMinter,
+    address _perpPositionMinter,
+    address _optionPositionMinter,
     int _expiry
   ) {
     require(_base != address(0), "Invalid base token");
@@ -285,8 +286,8 @@ contract OptionPerp is Ownable, Pausable {
 
     quoteLpPositionMinter = ILpPositionMinter(_quoteLpPositionMinter);
     baseLpPositionMinter = ILpPositionMinter(_baseLpPositionMinter);
-    perpPositionMinter = new PerpPositionMinter();
-    optionPositionMinter = new OptionPositionMinter();
+    perpPositionMinter = IPerpPositionMinter(_perpPositionMinter);
+    optionPositionMinter = IOptionPositionMinter(_optionPositionMinter);
 
     base.approve(_gmxRouter, MAX_UINT);
   }
@@ -676,6 +677,11 @@ contract OptionPerp is Ownable, Pausable {
 
     // Generate perp position NFT
     id = perpPositionMinter.mint(msg.sender);
+    console.log("Minted to");
+    console.log(msg.sender);
+    console.log("Minter");
+    console.log(address(perpPositionMinter));
+
     perpPositions[id] = PerpPosition({
       isOpen: true,
       isShort: isShort,

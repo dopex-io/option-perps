@@ -8,6 +8,8 @@ import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
+import "hardhat/console.sol";
+
 contract PerpPositionMinter is 
   ReentrancyGuard,
   ERC721('OP-PerpPosition', 'OPPP'),
@@ -61,4 +63,28 @@ contract PerpPositionMinter is
       return super.supportsInterface(interfaceId);
   }
 
+  /// @notice Returns the tokenIds owned by a wallet
+  /// @param owner wallet owner
+  function positionsOfOwner(address owner)
+      public
+      view
+      returns (uint256[] memory tokenIds)
+  {
+    uint256 ownerTokenCount = balanceOf(owner);
+
+    console.log("Token count of");
+    console.log(owner);
+    console.log(ownerTokenCount);
+
+    tokenIds = new uint256[](ownerTokenCount);
+    uint256 start;
+    uint256 idx;
+
+    while (start < ownerTokenCount) {
+        uint256 tokenId = tokenOfOwnerByIndex(owner, idx);
+        tokenIds[start] = tokenId;
+        ++start;
+        ++idx;
+    }
+  }
 }

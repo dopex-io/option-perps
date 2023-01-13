@@ -90,6 +90,8 @@ describe("Option Perp", function() {
       "0xa028B56261Bb1A692C06D993c383c872B51AfB33", // GMX HELPER
       quoteLpPositionMinter.address,
       baseLpPositionMinter.address,
+      perpPositionMinter.address,
+      optionPositionMinter.address,
       getTime() + oneWeek
     );
     console.log("deployed option perp:", optionPerp.address);
@@ -204,6 +206,9 @@ describe("Option Perp", function() {
     await optionPerp
       .connect(user1)
       .openPosition(false, toDecimals(1000, 8), toDecimals(500, 6));
+
+    expect((await perpPositionMinter.positionsOfOwner(user1.address))[0]).to.eq(0);
+
     const { size } = await optionPerp.perpPositions(0);
     expect(size).equal(toDecimals(1000, 8));
     expect(await usdc.balanceOf(user1.address)).equals(
