@@ -285,10 +285,10 @@ describe("Option Perp", function() {
     const shortPnl = await optionPerp._getPositionPnl(2);
 
     const longLiquidationPrice = await optionPerp._getPositionLiquidationPrice(1);
-    expect(longLiquidationPrice).to.eq(50805134000); // ETH at $508
+    expect(longLiquidationPrice).to.eq(53264877300); // ETH at $532
 
     const shortLiquidationPrice = await optionPerp._getPositionLiquidationPrice(2);
-    expect(shortLiquidationPrice).to.eq(130013541466); // ETH at $1300
+    expect(shortLiquidationPrice).to.eq(128512864400); // ETH at $1285
 
     expect(longPnl).to.eq(284000000); // $284
     expect(shortPnl).to.eq(-852000000); // -$852
@@ -310,9 +310,9 @@ describe("Option Perp", function() {
     const balance = (await usdc.balanceOf(user1.address));
     expect(balance).to.eq('98579963711');
 
-    // Liquidation price for our short goes from $1285 to $1466
+    // Liquidation price for our short goes from $1285 to $1442
     const shortLiquidationPrice = await optionPerp._getPositionLiquidationPrice(2);
-    expect(shortLiquidationPrice).to.eq(146616590066);
+    expect(shortLiquidationPrice).to.eq(144285760566);
 
     expect((await optionPerp.epochData(true)).totalDeposits).equals(
       "10000000000" // TOTAL DEPOSITS DONT CHANGE
@@ -325,7 +325,7 @@ describe("Option Perp", function() {
     await optionPerp.connect(user1).changePositionSize(2, toDecimals(1500, 8), toDecimals(800, 6), 0);
 
     const shortLiquidationPrice = await optionPerp._getPositionLiquidationPrice(3);
-    expect(shortLiquidationPrice).to.eq(196323601523); // ETH at $1963
+    expect(shortLiquidationPrice).to.eq(192927421496); // ETH at $1929
 
     const shortPositionValue = await optionPerp._getPositionValue(3);
     expect(shortPositionValue).to.eq(1499999988); // $1500 of position value remaining
@@ -346,7 +346,7 @@ describe("Option Perp", function() {
     await optionPerp.connect(user1).reduceCollateral(3, toDecimals(200, 6));
 
     const shortLiquidationPrice = await optionPerp._getPositionLiquidationPrice(3);
-    expect(shortLiquidationPrice).to.eq(179203719004); // Liquidation price decreases to $1792
+    expect(shortLiquidationPrice).to.eq(176663533164); // Liquidation price decreases to $1766
 
     let pnl = await optionPerp._getPositionPnl(3);
     expect(pnl).to.eq(12); // PnL does not change
@@ -452,7 +452,7 @@ describe("Option Perp", function() {
 
   it("position can be liquidated", async () => {
     const shortLiquidationPrice = await optionPerp._getPositionLiquidationPrice(3);
-    expect(shortLiquidationPrice).to.eq(179220166445); // Liquidation price decreases to $1792
+    expect(shortLiquidationPrice).to.eq(176679158245); // Liquidation price decreases to $1766
     
     await priceOracle.updateUnderlyingPrice("180000000000");
 
@@ -515,13 +515,13 @@ describe("Option Perp", function() {
 
   it("long position can be liquidated correctly too", async () => {
     const liquidationPrice = await optionPerp._getPositionLiquidationPrice(1);
-    expect(liquidationPrice).to.eq("50668946700");
+    expect(liquidationPrice).to.eq("53135499300");
 
-    await priceOracle.updateUnderlyingPrice("50711423100");
+    await priceOracle.updateUnderlyingPrice("53411423100");
 
     await expect(optionPerp.connect(user3).liquidate(1)).to.be.revertedWith("Position has enough collateral");
 
-    await priceOracle.updateUnderlyingPrice("50268946700");
+    await priceOracle.updateUnderlyingPrice("53011423099");
 
     const startBalance = (await usdc.balanceOf(user3.address));
     expect(startBalance).to.eq('305000000');
