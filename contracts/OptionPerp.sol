@@ -297,7 +297,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   /// @param from Address of the token to sell
   /// @param to Address of the token to buy
   /// @param targetAmountOut Target amount of to token we want to receive
-  function _swapUsingGmxExactOut(
+  function swapUsingGmxExactOut(
         address from,
         address to,
         uint256 targetAmountOut
@@ -319,14 +319,14 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Internal function to get total supply of quote/base lp tokens
   /// @param isQuote If true it returns quote lp tokens supply
-  function _getTotalSupply(bool isQuote) internal view returns (uint totalSupply) {
+  function getTotalSupply(bool isQuote) internal view returns (uint totalSupply) {
     totalSupply = uint(isQuote ? quoteLpPositionMinter.totalSupply() : baseLpPositionMinter.totalSupply());
   }
 
   /// @notice Public function to compute lp amount given an amount
   /// @param isQuote If true user deposits quote token (else base)
   /// @param amountIn Amount of quote/base token to deposit
-  function _calcLpAmount(
+  function calcLpAmount(
   bool isQuote,
   uint amountIn
   )
@@ -334,7 +334,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   view
   returns (uint amountOut)
   {
-    int currentPrice = int(_getMarkPrice());
+    int currentPrice = int(getMarkPrice());
     int averageOpenPrice = int(epochData[!isQuote].averageOpenPrice);
 
     // unrealizedPnl is ie6
@@ -363,10 +363,10 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     console.log(amountIn);
 
     console.log('Total supply');
-    console.log(_getTotalSupply(isQuote));
+    console.log(getTotalSupply(isQuote));
 
     if (deposits == 0) amountOut = amountIn;
-    else amountOut = (amountIn * _getTotalSupply(isQuote)) / uint(deposits);
+    else amountOut = (amountIn * getTotalSupply(isQuote)) / uint(deposits);
 
     console.log('Amount out');
     console.log(amountOut);
@@ -383,7 +383,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     console.log('DEPOSITS');
 
-    uint amountOut = _safeConvertToUint(_calcLpAmount(isQuote, uint(amountIn)));
+    uint amountOut = calcLpAmount(isQuote, uint(amountIn));
     epochData[isQuote].totalDeposits += uint(amountIn);
 
     console.log('TOTAL DEPOSIT NOW');
@@ -430,7 +430,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       lpAmount = baseLpPositionMinter.balanceOf(msg.sender);
     }
 
-    require(lpAmount >= _safeConvertToUint(amountIn), "Insufficient LP token amount");
+    require(lpAmount >= amountIn, "Insufficient LP token amount");
 
     console.log("LP AMOUNT");
     console.log(lpAmount);
@@ -476,12 +476,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     uint available = epochData[pendingWithdrawal.isQuote].totalDeposits - epochData[pendingWithdrawal.isQuote].activeDeposits;
 
-    uint totalSupply = _getTotalSupply(pendingWithdrawal.isQuote);
+    uint totalSupply = getTotalSupply(pendingWithdrawal.isQuote);
 
     console.log("AMOUNT TO BURN");
     console.log(pendingWithdrawal.amountIn);
 
-    uint currentPrice = _getMarkPrice();
+    uint currentPrice = getMarkPrice();
 
     // unrealizedPnl is ie6
     // we use !isQuote to get PnL of traders
@@ -491,7 +491,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     uint deposits = epochData[pendingWithdrawal.isQuote].totalDeposits - (pendingWithdrawal.isQuote ? unrealizedPnl : ((unrealizedPnl * 10 ** 2) * 10 ** 18) / currentPrice);
 
     if (pendingWithdrawal.isQuote) {
-      quoteLpPositionMinter.burnFromOptionPerp(pendingWithdrawal.user, _safeConvertToUint(pendingWithdrawal.amountIn));
+      quoteLpPositionMinter.burnFromOptionPerp(pendingWithdrawal.user, pendingWithdrawal.amountIn);
 
       console.log('IS QUOTE');
       console.log('AMOUNT IN');
@@ -499,36 +499,36 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       console.log('AVAILABLE');
       console.log(available);
       console.log('TOTAL SUPPLY');
-      console.log(_getTotalSupply(pendingWithdrawal.isQuote));
+      console.log(getTotalSupply(pendingWithdrawal.isQuote));
 
       amountOut = (pendingWithdrawal.amountIn * deposits) / totalSupply;
       require(amountOut <= available, "Insufficient liquidity");
 
-      quote.safeTransfer(pendingWithdrawal.user, _safeConvertToUint(amountOut - pendingWithdrawal.priorityFee));
+      quote.safeTransfer(pendingWithdrawal.user, amountOut - pendingWithdrawal.priorityFee);
 
       amountOutFeesWithheld = pendingWithdrawal.priorityFee * feePriorityWithheld / (divisor * 100);
       amountOutFeesForBot = pendingWithdrawal.priorityFee - amountOutFeesWithheld;
 
-      quote.safeTransfer(msg.sender, _safeConvertToUint(amountOutFeesForBot));
+      quote.safeTransfer(msg.sender, amountOutFeesForBot);
     } else {
-      baseLpPositionMinter.burnFromOptionPerp(pendingWithdrawal.user, _safeConvertToUint(pendingWithdrawal.amountIn));
+      baseLpPositionMinter.burnFromOptionPerp(pendingWithdrawal.user, pendingWithdrawal.amountIn);
 
       console.log('AMOUNT IN');
       console.log(pendingWithdrawal.amountIn);
       console.log('AVAILABLE');
       console.log(available);
       console.log('TOTAL SUPPLY');
-      console.log(_getTotalSupply(pendingWithdrawal.isQuote));
+      console.log(getTotalSupply(pendingWithdrawal.isQuote));
 
       amountOut = (pendingWithdrawal.amountIn * deposits) / totalSupply;
       require(amountOut <= available, "Insufficient liquidity");
 
-      base.safeTransfer(pendingWithdrawal.user, _safeConvertToUint(amountOut - pendingWithdrawal.priorityFee));
+      base.safeTransfer(pendingWithdrawal.user, amountOut - pendingWithdrawal.priorityFee);
 
       amountOutFeesWithheld = pendingWithdrawal.priorityFee * feePriorityWithheld / (divisor * 100);
       amountOutFeesForBot = pendingWithdrawal.priorityFee - amountOutFeesWithheld;
 
-      base.safeTransfer(msg.sender, _safeConvertToUint(amountOutFeesForBot));
+      base.safeTransfer(msg.sender, amountOutFeesForBot);
     }
 
     require(amountOut - pendingWithdrawal.priorityFee >= pendingWithdrawal.minAmountOut, "Insufficient amount out");
@@ -590,16 +590,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     (amountOut,,) = completeWithdrawalRequest(id);
   }
 
-  /// @notice Intenral function to safe convert from uint to uint without overflow
-  /// @param amountIn Amount to convert
-  function _safeConvertToUint(uint amountIn)
-  internal
-  view
-  returns (uint amountOut) {
-    require(amountIn >= 0, "Overflow");
-    amountOut = uint(amountIn);
-  }
-
   /// @notice Public function to open a position
   /// @param isShort If true then it's a short position (else long)
   /// @param size Size of the position in USD (ie8)
@@ -611,7 +601,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   ) public nonReentrant() returns (uint id) {
     _whenNotPaused();
 
-    uint _sizeInBase = size * uint(10 ** base.decimals()) / _getMarkPrice();
+    uint _sizeInBase = size * uint(10 ** base.decimals()) / getMarkPrice();
     // Check if enough liquidity is available to open position
     require(
       (epochData[isShort].totalDeposits -
@@ -629,15 +619,15 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     // Calculate premium for ATM option in USD
     // If is short, premium is in quote.decimals(). if long, base.decimals();
-    uint premium = _calcPremium(_getMarkPrice(), size);
+    uint premium = calcPremium(getMarkPrice(), size);
 
     // Calculate opening fees in USD
-    uint openingFees = _calcFees(true, size / 10 ** 2);
+    uint openingFees = calcFees(true, size / 10 ** 2);
     console.log('Opening fees');
     console.log(openingFees);
 
     // Calculate closing fees in USD
-    uint closingFees = _calcFees(false, size / 10 ** 2);
+    uint closingFees = calcFees(false, size / 10 ** 2);
     console.log('Closing fees');
     console.log(closingFees);
 
@@ -653,7 +643,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     );
 
     // Number of positions (in 8 decimals)
-    uint positions = size * divisor / _getMarkPrice();
+    uint positions = size * divisor / getMarkPrice();
     console.log('Positions');
     console.log(positions);
 
@@ -666,7 +656,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     epochData[isShort].positions         += positions;
 
     if (epochData[isShort].averageOpenPrice == 0)
-      epochData[isShort].averageOpenPrice  = _getMarkPrice();
+      epochData[isShort].averageOpenPrice  = getMarkPrice();
     else
       epochData[isShort].averageOpenPrice  =
         epochData[isShort].oi /
@@ -676,7 +666,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     quote.safeTransferFrom(
         msg.sender,
         address(this),
-        _safeConvertToUint(collateralAmount)
+        collateralAmount
       );
 
     // Generate perp position NFT
@@ -691,7 +681,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       isShort: isShort,
       positions: positions,
       size: size,
-      averageOpenPrice: _getMarkPrice(),
+      averageOpenPrice: getMarkPrice(),
       margin: collateralAmount,
       premium: premium,
       openingFees: openingFees,
@@ -739,14 +729,14 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   returns (uint volatility) {
     volatility =
       uint(volatilityOracle.getVolatility(
-        _safeConvertToUint(strike)
+        strike
       ));
   }
 
   /// @notice Internal function to calculate premium
   /// @param strike Strike of option
   /// @param size Amount of option
-  function _calcPremium(
+  function calcPremium(
     uint strike,
     uint size
   )
@@ -754,10 +744,10 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   returns (uint premium) {
     premium = (uint(optionPricing.getOptionPrice(
         false, // ATM options: does not matter if call or put
-        _safeConvertToUint(expiry),
-        _safeConvertToUint(strike),
-        _safeConvertToUint(strike),
-        _safeConvertToUint(getVolatility(strike))
+        expiry,
+        strike,
+        strike,
+        getVolatility(strike)
     )) * (size / strike));
     
     premium = premium / (divisor / uint(10 ** quote.decimals()));
@@ -766,7 +756,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   /// @notice Internal function to calculate fees
   /// @param openingPosition True if is opening position (else is closing)
   /// @param amount Value of option in USD (ie6)
-  function _calcFees(
+  function calcFees(
     bool openingPosition,
     uint amount
   )
@@ -778,7 +768,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Public function to retrieve price of base asset from oracle
   /// @param price Mark price
-  function _getMarkPrice()
+  function getMarkPrice()
   public
   view
   returns (uint price) {
@@ -802,7 +792,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     IERC20(quote).safeTransferFrom(
       msg.sender,
       address(this),
-      _safeConvertToUint(collateralAmount)
+      collateralAmount
     );
     emit AddCollateralToPosition(
       id,
@@ -827,12 +817,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     epochData[perpPositions[id].isShort].margin -= collateralAmount;
     perpPositions[id].margin -= collateralAmount;
 
-    require(_isPositionCollateralized(id), "Position is not collateralized");
+    require(isPositionCollateralized(id), "Position is not collateralized");
 
     // Move collateral
     IERC20(quote).safeTransfer(
        msg.sender,
-      _safeConvertToUint(collateralAmount)
+      collateralAmount
     );
 
     emit ReduceCollateralForPosition(
@@ -844,7 +834,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Public function to returns true if position is open
   /// @param id Identifier of the position
-  function _isPositionOpen(uint id)
+  function isPositionOpen(uint id)
   public
   view
   returns (bool value) {
@@ -853,24 +843,23 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Public function to get value of an open perp position
   /// @param id Identifier of the position
-  function _getPositionValue(uint id)
+  function getPositionValue(uint id)
   public
   view
   returns (uint value) {
-    value = perpPositions[id].positions * _getMarkPrice() / (divisor * 100); // ie6
+    value = perpPositions[id].positions * getMarkPrice() / (divisor * 100); // ie6
   }
 
-  /// @notice Public function to get funding of an open perp position
-  /// @param id Identifier of the position
-  function _getPositionFunding(uint id)
+  /// @notice Public function to get funding rate
+  /// @param isShort True for short side
+  function getFundingRate(bool isShort)
   public
   view
-  returns (int funding) {
-    uint markPrice = _getMarkPrice() / 10 ** 2;
+  returns (int fundingRate) {
+    uint markPrice = getMarkPrice() / 10 ** 2;
     uint shortOiInUsd = epochData[true].oi * markPrice / divisor; // ie6
     uint longOiInUsd = epochData[false].oi * markPrice / divisor; // ie6
-
-    int fundingRate = int(minFundingRate);
+    fundingRate = int(minFundingRate);
 
     if (shortOiInUsd > 0) {
       uint longShortRatio = divisor * longOiInUsd / shortOiInUsd;
@@ -879,8 +868,17 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       if (longShortRatio > divisor) longFunding = int(maxFundingRate);
       else longFunding = (int(maxFundingRate - minFundingRate) * int(longShortRatio)) / int(divisor);
 
-      fundingRate = perpPositions[id].isShort ? -1 * longFunding :  longFunding;
+      fundingRate = isShort ? -1 * longFunding :  longFunding;
     }
+  }
+
+  /// @notice Public function to get funding of an open perp position
+  /// @param id Identifier of the position
+  function getPositionFunding(uint id)
+  public
+  view
+  returns (int funding) {
+    int fundingRate = getFundingRate(perpPositions[id].isShort);
 
     // size is ie8
     // margin is ie6
@@ -891,7 +889,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Public function to get Pnl of an option position
   /// @param id Identifier of the position
-  function _getOptionPnl(uint id)
+  function getOptionPnl(uint id)
   public
   view
   returns (uint value) {
@@ -920,11 +918,11 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Public function to get Pnl of a  position
   /// @param id Identifier of the position
-  function _getPositionPnl(uint id)
+  function getPositionPnl(uint id)
   public
   view
   returns (int value) {
-    int positionValue = int(_getPositionValue(id));
+    int positionValue = int(getPositionValue(id));
 
     value = perpPositions[id].isShort ?
       int(perpPositions[id].size / 10 ** 2) - positionValue :
@@ -933,25 +931,25 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Get net margin of an open perp position
   /// @param id Identifier of the position
-  function _getPositionNetMargin(uint id)
+  function getPositionNetMargin(uint id)
   public
   view
   returns (int value) {
-    int pnl = _getPositionPnl(id);
+    int pnl = getPositionPnl(id);
     int sizePlusPnl = int(perpPositions[id].size / 10 ** 2)  + pnl;
 
-    uint closingFees = sizePlusPnl <= 0 ? 0 : _calcFees(false, uint(sizePlusPnl));
+    uint closingFees = sizePlusPnl <= 0 ? 0 : calcFees(false, uint(sizePlusPnl));
 
-    value = int(perpPositions[id].margin) - int(perpPositions[id].premium) - int(perpPositions[id].openingFees) - int(closingFees) - _getPositionFunding(id); // ie6
+    value = int(perpPositions[id].margin) - int(perpPositions[id].premium) - int(perpPositions[id].openingFees) - int(closingFees) - getPositionFunding(id); // ie6
   }
 
   /// @notice Get liquidation price
   /// @param id Identifier of the position
-  function _getPositionLiquidationPrice(uint id)
+  function getPositionLiquidationPrice(uint id)
   public
   view
   returns (uint price) {
-    int netMargin = _getPositionNetMargin(id);
+    int netMargin = getPositionNetMargin(id);
     netMargin -= netMargin * int(liquidationThreshold / (divisor * 100));
 
     if (netMargin < 0) netMargin = 0;
@@ -965,12 +963,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
   /// @notice Function to check whether a position is sufficiently collateralized
   /// @param id Identifier of the position
-  function _isPositionCollateralized(uint id)
+  function isPositionCollateralized(uint id)
   public
   view
   returns (bool isCollateralized) {
-    int pnl = _getPositionPnl(id);
-    int netMargin = _getPositionNetMargin(id);
+    int pnl = getPositionPnl(id);
+    int netMargin = getPositionNetMargin(id);
     netMargin -= netMargin * int(liquidationThreshold / (divisor * 100));
     isCollateralized = netMargin + pnl >= 0;
   }
@@ -990,16 +988,16 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     optionPositions[id].isSettled = true;
 
-    uint pnl = _getOptionPnl(id);
+    uint pnl = getOptionPnl(id);
 
     require(pnl > 0, "Negative pnl");
 
     if (optionPositions[id].isPut) {
-      quote.safeTransfer(owner, _safeConvertToUint(pnl));
+      quote.safeTransfer(owner, pnl);
       epochData[true].totalDeposits -= pnl;
     }
     else {
-      base.safeTransfer(owner, _safeConvertToUint(pnl));
+      base.safeTransfer(owner, pnl);
       epochData[false].totalDeposits -= pnl;
     }
 
@@ -1026,16 +1024,16 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     // Sender must be owner of position
     require(perpPositionMinter.ownerOf(id) == msg.sender, "Invalid sender");
     // Position must be sufficiently collateralized
-    require(_isPositionCollateralized(id), "Position is not collateralized");
+    require(isPositionCollateralized(id), "Position is not collateralized");
 
     // Calculate pnl
-    int pnl = _getPositionPnl(id);
+    int pnl = getPositionPnl(id);
     // Settle option positions
     bool isShort = perpPositions[id].isShort;
     // Calculate funding
-    int funding = _getPositionFunding(id);
+    int funding = getPositionFunding(id);
     // Calculate closing fees
-    uint closingFees = int(perpPositions[id].size / 10 ** 2) + pnl <= 0 ? 0 : _calcFees(false, uint(int(perpPositions[id].size / 10 ** 2) + pnl));
+    uint closingFees = int(perpPositions[id].size / 10 ** 2) + pnl <= 0 ? 0 : calcFees(false, uint(int(perpPositions[id].size / 10 ** 2) + pnl));
 
     epochData[isShort].margin -= perpPositions[id].margin;
     epochData[isShort].activeDeposits -= perpPositions[id].size / 10 ** 2;
@@ -1061,12 +1059,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     uint toTransfer = uint(int(perpPositions[id].margin) + pnl - int(perpPositions[id].premium) - int(perpPositions[id].openingFees) - int(perpPositions[id].closingFees) - perpPositions[id].funding);
 
     if (toTransfer > 0) {
-      amountOut = _safeConvertToUint(toTransfer);
+      amountOut = toTransfer;
       require(amountOut >= minAmountOut, "Amount out is not enough");
 
       if (!perpPositions[id].isShort) {
         // Convert collateral + PNL to quote and send to user
-        amountOut = _swapUsingGmxExactOut(address(base), address(quote), amountOut);
+        amountOut = swapUsingGmxExactOut(address(base), address(quote), amountOut);
       }
 
       quote.safeTransfer(perpPositionMinter.ownerOf(id), amountOut);
@@ -1088,7 +1086,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     _whenNotPaused();
 
     // Check if position is not sufficiently collateralized
-    require(!_isPositionCollateralized(id), "Position has enough collateral");
+    require(!isPositionCollateralized(id), "Position has enough collateral");
     require(perpPositions[id].isOpen, "Position not open");
 
     bool isShort = perpPositions[id].isShort;
@@ -1107,11 +1105,11 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     perpPositions[id].isOpen = false;
     perpPositions[id].pnl = -1 * int(perpPositions[id].margin);
 
-    uint amountOut = _safeConvertToUint(liquidationFee);
+    uint amountOut = liquidationFee;
 
     if (!perpPositions[id].isShort) {
       // swap base for enough quote to pay liquidationFee
-      amountOut = _swapUsingGmxExactOut(address(base), address(quote), amountOut);
+      amountOut = swapUsingGmxExactOut(address(base), address(quote), amountOut);
     }
 
     // Transfer liquidation fee to sender
@@ -1137,7 +1135,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       id,
       perpPositions[id].margin,
       perpPositions[id].positions,
-      _getMarkPrice(),
+      getMarkPrice(),
       liquidationFee,
       msg.sender
     );
@@ -1192,7 +1190,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     require(uint(block.timestamp) <= expiry, "Too soon");
 
     expiry = nextExpiryTimestamp;
-    expiryPrices[epoch] = _getMarkPrice();
+    expiryPrices[epoch] = getMarkPrice();
     epoch += 1;
   }
 
