@@ -3,8 +3,9 @@ pragma solidity ^0.8.9;
 
 import {IERC20} from "./interface/IERC20.sol";
 import {SafeERC20} from "./libraries/SafeERC20.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Pausable} from "./helpers/Pausable.sol";
@@ -60,7 +61,7 @@ import "hardhat/console.sol";
 // - Deposits are always open
 // - Withdraws are always open (with a priority queue system)
 
-contract OptionPerp is Ownable, Pausable {
+contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
   IERC20 public base;
@@ -376,7 +377,7 @@ contract OptionPerp is Ownable, Pausable {
   function deposit(
     bool isQuote,
     uint amountIn
-  ) external {
+  ) external nonReentrant() {
     _whenNotPaused();
 
     uint amountOut = _safeConvertToUint(_calcLpAmount(isQuote, int(amountIn)));
@@ -462,7 +463,7 @@ contract OptionPerp is Ownable, Pausable {
   /// @param id Identifier of the withdrawal request
   function completeWithdrawalRequest(
     uint id
-  ) public returns (int amountOut, int amountOutFeesForBot, int amountOutFeesWithheld)
+  ) public nonReentrant() returns (int amountOut, int amountOutFeesForBot, int amountOutFeesWithheld)
   {
     _whenNotPaused();
 
@@ -604,7 +605,7 @@ contract OptionPerp is Ownable, Pausable {
     bool isShort,
     int size,
     int collateralAmount
-  ) public returns (uint id) {
+  ) public nonReentrant() returns (uint id) {
     _whenNotPaused();
 
     int _sizeInBase = size * int(10 ** base.decimals()) / _getMarkPrice();
@@ -787,7 +788,7 @@ contract OptionPerp is Ownable, Pausable {
   function addCollateral(
     uint id,
     int collateralAmount
-  ) external {
+  ) external nonReentrant() {
     _whenNotPaused();
 
     // Check if position is open
@@ -813,7 +814,7 @@ contract OptionPerp is Ownable, Pausable {
   function reduceCollateral(
     uint id,
     int collateralAmount
-  ) external {
+  ) external nonReentrant() {
     _whenNotPaused();
 
     // Check if position is open
@@ -967,7 +968,7 @@ contract OptionPerp is Ownable, Pausable {
   /// @param id Identifier of the option
   function settle(
     uint id
-  ) public {
+  ) public nonReentrant() {
     _whenNotPaused();
 
     address owner = optionPositionMinter.ownerOf(id);
@@ -1006,7 +1007,7 @@ contract OptionPerp is Ownable, Pausable {
   function closePosition(
     uint id,
     uint minAmountOut
-  ) public returns (uint amountOut) {
+  ) public nonReentrant() returns (uint amountOut) {
     _whenNotPaused();
 
     // Check if position is open
@@ -1072,7 +1073,7 @@ contract OptionPerp is Ownable, Pausable {
   /// @param id Identifier of the option
   function liquidate(
     uint id
-  ) external {
+  ) external nonReentrant() {
     _whenNotPaused();
 
     // Check if position is not sufficiently collateralized
