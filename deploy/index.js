@@ -46,23 +46,6 @@ module.exports = async hre => {
     log: true,
   });
 
-  const optionPerp = await deployments.deploy("OptionPerp", {
-    args: [
-      "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // weth address
-      "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-      optionPricing.address,
-      volatilityOracle.address,
-      priceOracle.address,
-      "0xaBBc5F99639c9B6bCb58544ddf04EFA6802F4064", // GMX
-      "0xa028B56261Bb1A692C06D993c383c872B51AfB33", // GMX HELPER
-      quoteLpPositionMinter.address,
-      baseLpPositionMinter.address,
-      "1676132337"
-    ],
-    from: deployer,
-    log: true,
-  });
-
   const abi = [
     {
       "inputs": [
@@ -851,6 +834,25 @@ module.exports = async hre => {
     optionPositionMinter.address,
     deployer
   );
+
+    const optionPerp = await deployments.deploy("OptionPerp", {
+    args: [
+      "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // weth address
+      "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+      optionPricing.address,
+      volatilityOracle.address,
+      priceOracle.address,
+      "0xaBBc5F99639c9B6bCb58544ddf04EFA6802F4064", // GMX
+      "0xa028B56261Bb1A692C06D993c383c872B51AfB33", // GMX HELPER
+      quoteLpPositionMinter.address,
+      baseLpPositionMinter.address,
+      perpPositionMinter.address,
+      optionPositionMinter.address,
+      "1676132337"
+    ],
+    from: deployer,
+    log: true,
+  });
 
   await _quoteLpPositionMinter.setOptionPerpContract(optionPerp.address);
   await _baseLpPositionMinter.setOptionPerpContract(optionPerp.address);
