@@ -343,11 +343,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     // we use !isQuote to get PnL of traders
     int unrealizedPnl = (isQuote ? (currentPrice - averageOpenPrice) : (averageOpenPrice - currentPrice)) * (int(epochData[!isQuote].positions) / 10 ** 2) / int(divisor);
 
-    console.log('LP');
-    console.log('TOTAL DEPOSITS');
-    console.log(epochData[isQuote].totalDeposits);
-    console.logInt(isQuote ? unrealizedPnl : ((unrealizedPnl * 10 ** 2) * 10 ** 18) / currentPrice);
-
     // totalDeposits is ie6 for isQuote, ie18 for isBase
     int deposits = int(epochData[isQuote].totalDeposits) - (isQuote ? unrealizedPnl : ((unrealizedPnl * 10 ** 2) * 10 ** 18) / currentPrice);
 
@@ -364,15 +359,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   ) external nonReentrant() {
     _whenNotPaused();
 
-    console.log('TOTAL DEPOSITS BEFORE DEPOSIT BASE');
-    console.log(epochData[false].totalDeposits);
-
-    console.log('TOTAL DEPOSITS BEFORE DEPOSIT QUOTE');
-    console.log(epochData[true].totalDeposits);
-
-    console.log('AMOUNT IN');
-    console.log(amountIn);
-
     uint amountOut = calcLpAmount(isQuote, uint(amountIn));
     epochData[isQuote].totalDeposits += uint(amountIn);
 
@@ -383,12 +369,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       base.safeTransferFrom(msg.sender, address(this), amountIn);
       baseLpPositionMinter.mint(msg.sender, amountOut);
     }
-
-    console.log('TOTAL DEPOSITS AFTER DEPOSIT BASE');
-    console.log(epochData[false].totalDeposits);
-
-    console.log('TOTAL DEPOSITS AFTER DEPOSIT QUOTE');
-    console.log(epochData[true].totalDeposits);
 
     emit Deposit(
       isQuote,
@@ -421,11 +401,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     }
 
     require(lpAmount >= amountIn, "Insufficient LP token amount");
-
-    console.log("LP AMOUNT");
-    console.log(lpAmount);
-    console.log("AMOUNT IN");
-    console.log(amountIn);
 
     pendingWithdrawals[withdrawalRequestsCounter] = PendingWithdrawal({
       amountIn: amountIn,
@@ -465,8 +440,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     uint totalSupply = getTotalSupply(pendingWithdrawal.isQuote);
 
-    console.log("AMOUNT TO BURN");
-    console.log(pendingWithdrawal.amountIn);
 
     uint currentPrice = getMarkPrice();
 
@@ -492,13 +465,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     } else {
       baseLpPositionMinter.burnFromOptionPerp(pendingWithdrawal.user, pendingWithdrawal.amountIn);
 
-      console.log('AMOUNT IN');
-      console.log(pendingWithdrawal.amountIn);
-      console.log('AVAILABLE');
-      console.log(available);
-      console.log('TOTAL SUPPLY');
-      console.log(getTotalSupply(pendingWithdrawal.isQuote));
-
       amountOut = (pendingWithdrawal.amountIn * deposits) / totalSupply;
       require(amountOut <= available, "Insufficient liquidity");
 
@@ -511,9 +477,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     }
 
     require(amountOut - pendingWithdrawal.priorityFee >= pendingWithdrawal.minAmountOut, "Insufficient amount out");
-
-    console.log('AMOUNT OUT');
-    console.log(amountOut);
 
     delete pendingWithdrawals[id];
 
@@ -589,30 +552,18 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       "Not enough liquidity to open position"
     );
 
-    console.log('TOTAL DEPOSIT BEFORE LONG');
-    console.log(epochData[false].totalDeposits);
-
-    console.log('TOTAL DEPOSIT BEFORE SHORT');
-    console.log(epochData[true].totalDeposits);
-
     // Calculate premium for ATM option in USD
     // If is short, premium is in quote.decimals(). if long, base.decimals();
     uint premium = calcPremium(getMarkPrice(), size);
 
     // Calculate opening fees in USD
     uint openingFees = calcFees(true, size / 10 ** 2);
-    console.log('Opening fees');
-    console.log(openingFees);
 
     // Calculate closing fees in USD
     uint closingFees = calcFees(false, size / 10 ** 2);
-    console.log('Closing fees');
-    console.log(closingFees);
 
     // Calculate minimum collateral in USD
     uint minCollateral = (premium * 2) + openingFees + closingFees;
-    console.log('Min collateral');
-    console.log(minCollateral);
 
     // Check if collateral amount is sufficient for short side of trade and long premium
     require(
@@ -622,8 +573,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     // Number of positions (in 8 decimals)
     uint positions = size * divisor / getMarkPrice();
-    console.log('Positions');
-    console.log(positions);
 
     // Update epoch LP data
     epochData[isShort].margin            += collateralAmount;
@@ -678,12 +627,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       msg.sender,
       id
     );
-
-    console.log('TOTAL DEPOSIT AFTER LONG');
-    console.log(epochData[false].totalDeposits);
-
-    console.log('TOTAL DEPOSIT AFTER SHORT');
-    console.log(epochData[true].totalDeposits);
   }
 
   /// @notice External function to change the size of a position (it closes the existing position and creates a new one)
@@ -882,15 +825,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     require(expiryPrice > 0, "Too early");
 
-    console.log('STRIKE');
-    console.log(optionPositions[id].strike);
-
-    console.log('EXPIRY PRICE');
-    console.log(expiryPrice);
-
-    console.log('AMOUNT');
-    console.log(optionPositions[id].amount);
-
     // all terms are ie8
     // after we multiply we have an ie16 term so we remove 8 and another 2 to make it ie6
 
@@ -936,12 +870,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   returns (uint price) {
     int netMargin = getPositionNetMargin(id);
 
-    console.log('NET MARGIN');
-    console.logInt(netMargin);
-
     netMargin -= netMargin * int(liquidationThreshold / (divisor * 100));
-
-    console.logInt(netMargin);
 
     if (netMargin < 0) netMargin = 0;
 
@@ -1030,38 +959,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     epochData[isShort].margin -= perpPositions[id].margin;
 
-    console.log('KOS1');
-
     epochData[isShort].activeDeposits -= perpPositions[id].allocatedDeposits;
-
-    console.log('IS SHORT?');
-    console.log(isShort);
-
-    console.log('TOTAL DEPOSIT BEFORE LONG');
-    console.log(epochData[false].totalDeposits);
-
-    console.log('TOTAL DEPOSIT BEFORE SHORT');
-    console.log(epochData[true].totalDeposits);
-
-    console.log('PNL');
-    console.logInt(pnl);
-
-    console.log('FUNDING');
-    console.logInt(funding);
-
-    console.log('CLOSING FEES');
-    console.log(closingFees);
 
     // If user goes long we reserve ETH (base)
 
     if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - (pnl + funding + int(closingFees)));
     else epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - int(1e20) * (pnl + funding + int(closingFees)) / int(getMarkPrice()));
-
-    console.log('TOTAL DEPOSIT AFTER LONG');
-    console.log(epochData[false].totalDeposits);
-
-    console.log('TOTAL DEPOSIT AFTER SHORT');
-    console.log(epochData[true].totalDeposits);
 
     epochData[isShort].oi -= perpPositions[id].size;
 
@@ -1122,21 +1025,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     int pnl = getPositionPnl(id);
 
-    console.log('KOO');
-
-    console.log('ACTIVE DEPOSITS');
-    console.log(epochData[isShort].activeDeposits);
-
-    console.log('TO SUBTRACT LONG');
-    console.log(perpPositions[id].size / 10 ** 2);
-    console.log('TO SUBTRACT SHORT');
-    console.log(1e20 * (perpPositions[id].size / 10 ** 2) / getMarkPrice());
-    console.log('IS SHORT?');
-    console.log(isShort);
-
     epochData[isShort].activeDeposits -= perpPositions[id].allocatedDeposits;
-
-    console.log('DOO');
 
     if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - (pnl + funding + int(closingFees)));
     else epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - int(1e20) * (pnl + funding + int(closingFees)) / int(getMarkPrice()));
