@@ -334,7 +334,7 @@ describe("Option Perp", function() {
     expect(pnl).to.eq(12);
 
     expect((await optionPerp.epochData(true)).totalDeposits).equals(
-      "10847001691" // TOTAL DEPOSITS CHANGE AS LP ACQUIRE -PNL FUNDING AND FEES
+      "10856998309" // TOTAL DEPOSITS CHANGE AS LP ACQUIRE -PNL FUNDING AND FEES
     );
   });
 
@@ -363,7 +363,7 @@ describe("Option Perp", function() {
     expect(shortPositionValue).to.eq(1752336435); // Position value increases
 
     expect((await optionPerp.epochData(true)).totalDeposits).equals(
-      "10847001691" // TOTAL DEPOSITS CHANGE AS LP ACQUIRE -PNL FUNDING AND FEES
+      "10856998309" // TOTAL DEPOSITS CHANGE AS LP ACQUIRE -PNL FUNDING AND FEES
     );
   });
 
@@ -385,16 +385,16 @@ describe("Option Perp", function() {
 
     // After this user deposits there will be 10847 + 10000 = 20847
     // We'll have (amountIn * _getTotalSupply(isQuote)) / (epochData[currentEpoch][isQuote].totalDeposits - pnl) =
-    // = (10000 * 10000) / (10847001691 - pnl) = adjusting decimals is 9758.952229 LP tokens
+    // = (10000 * 10000) / 10256998309 = adjusting decimals is 9749.44 LP tokens
     // 600 is unrealized pnl of traders
 
-    expect(lpTokenAmount.toString()).equals("9758952229");
+    expect(lpTokenAmount.toString()).equals("9749441014");
 
     const totalSupply = await quoteLpPositionMinter.totalSupply();
 
     console.log(quoteLpPositionMinter.address);
 
-    expect(totalSupply).to.eq("19758952229");
+    expect(totalSupply).to.eq("19749441014");
 
     // Test withdraw to see if we can get back our 10000 USDC burning 9758.95 LP tokens
     await optionPerp.connect(user2).withdraw(true, lpTokenAmount, 0);
@@ -415,13 +415,13 @@ describe("Option Perp", function() {
 
     const lpTokenAmount = await quoteLpPositionMinter.balanceOf(user2.address);
 
-    expect(lpTokenAmount.toString()).equals("4879476114");
+    expect(lpTokenAmount.toString()).equals("4874720506");
 
     const totalSupply = await quoteLpPositionMinter.totalSupply();
 
     console.log(quoteLpPositionMinter.address);
 
-    expect(totalSupply).to.eq("14879476114");
+    expect(totalSupply).to.eq("14874720506");
 
     const expectedAmountOut = await optionPerp.connect(user2).callStatic.withdraw(true, lpTokenAmount, 0);
     expect(expectedAmountOut).to.eq("4999999999");
@@ -544,13 +544,13 @@ describe("Option Perp", function() {
 
     const lpTokenAmount = await quoteLpPositionMinter.balanceOf(user2.address);
 
-    expect(lpTokenAmount.toString()).equals("4021863356");
+    expect(lpTokenAmount.toString()).equals("4446772942");
 
     const totalSupply = await quoteLpPositionMinter.totalSupply();
 
     console.log(quoteLpPositionMinter.address);
 
-    expect(totalSupply).to.eq("14021863356");
+    expect(totalSupply).to.eq("14446772942");
 
     const expectedAmountOut = await optionPerp.connect(user2).callStatic.withdraw(true, lpTokenAmount, 0);
     expect(expectedAmountOut).to.eq("4999999999");
@@ -610,10 +610,10 @@ describe("Option Perp", function() {
     const lpTokenAmount = await baseLpPositionMinter.balanceOf(user2.address);
 
     // Unrealized pnl is $1500
-    // Total deposits are 10000000099754534490, we subtract pnl in ETH term (3) so we have 7000000099754534490
+    // Total deposits are 10651372829393012619, we subtract pnl in ETH term (3) so we have 7000000000754534490
     // Total supply was 10000000000000000000
-    // Amount out is now (1 * 10 ** 18) * 10000000000000000000 / 7000000000754534490 = 1428571428417441940
-    expect(lpTokenAmount.toString()).equals("1428571428417441940");
+    // Amount out is now (1 * 10 ** 18) * 10000000000000000000 / 7000000000754534490 = 1306955003105410718
+    expect(lpTokenAmount.toString()).equals("1306955003105410718");
 
     // Test withdraw to see if we can get back our 1 ETH burning 1.4285 LP tokens
     await optionPerp.connect(user2).withdraw(false, lpTokenAmount, 0);
