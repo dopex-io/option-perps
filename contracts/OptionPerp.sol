@@ -93,8 +93,8 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   mapping (uint => uint) public expiryPrices;
 
   uint public constant divisor       = 1e8;
-  uint public minFundingRate          = 3650000000; // 36.5% annualized (0.1% a day)
-  uint public maxFundingRate          = 365000000000; // 365% annualized (1% a day)
+  uint public minFundingRate         = 3650000000; // 36.5% annualized (0.1% a day)
+  uint public maxFundingRate         = 365000000000; // 365% annualized (1% a day)
   uint public feeOpenPosition        = 5000000; // 0.05%
   uint public feeClosePosition       = 5000000; // 0.05%
   uint public feeLiquidation         = 50000000; // 0.5%
@@ -538,7 +538,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     delete pendingWithdrawals[id];
 
-    epochData[pendingWithdrawal.isQuote].totalDeposits = epochData[pendingWithdrawal.isQuote].totalDeposits - amountOut;
+    epochData[pendingWithdrawal.isQuote].totalDeposits -= amountOut;
 
     emit DeleteWithdrawRequest(
       id,
@@ -652,7 +652,10 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     epochData[isShort].oi                += size;
     epochData[isShort].premium           += premium;
     epochData[isShort].openingFees       += openingFees;
-    epochData[isShort].activeDeposits    += size / 10 ** 2;
+
+    if (isShort) epochData[isShort].activeDeposits += size / 10 ** 2;
+    else epochData[isShort].activeDeposits += 1e20 * (size / 10 ** 2) / getMarkPrice();
+
     epochData[isShort].positions         += positions;
 
     if (epochData[isShort].averageOpenPrice == 0)
@@ -766,7 +769,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     fees = (amount * (openingPosition ? feeOpenPosition : feeClosePosition)) / (100 * divisor);
   }
 
-  /// @notice Public function to retrieve price of base asset from oracle
+  /// @notice Public function to retrieve price of base asset from oracle (1e8)
   /// @param price Mark price
   function getMarkPrice()
   public
@@ -887,7 +890,7 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     funding = ((_borrowed * fundingRate / int(divisor * 100)) * int(block.timestamp - perpPositions[id].openedAt)) / int(365 days); // ie6
   }
 
-  /// @notice Public function to get Pnl of an option position
+  /// @notice Public function to get Pnl of an option position (ie6)
   /// @param id Identifier of the position
   function getOptionPnl(uint id)
   public
@@ -998,7 +1001,9 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     }
     else {
       base.safeTransfer(owner, pnl);
-      epochData[false].totalDeposits -= pnl;
+      // pnl is ie6, mark price is ie8
+      // 20 + 6 - 8 = ie18
+      epochData[false].totalDeposits -= 1e20 * pnl / getMarkPrice();
     }
 
     emit Settle(
@@ -1036,10 +1041,16 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     uint closingFees = int(perpPositions[id].size / 10 ** 2) + pnl <= 0 ? 0 : calcFees(false, uint(int(perpPositions[id].size / 10 ** 2) + pnl));
 
     epochData[isShort].margin -= perpPositions[id].margin;
-    epochData[isShort].activeDeposits -= perpPositions[id].size / 10 ** 2;
+
+    console.log('POS');
+
+    if (isShort) epochData[isShort].activeDeposits -= perpPositions[id].size / 10 ** 2;
+    else epochData[isShort].activeDeposits -= 1e20 * (perpPositions[id].size / 10 ** 2) / getMarkPrice();
 
     console.log(epochData[isShort].totalDeposits);
-    epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees));
+
+    if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees));
+    else epochData[isShort].totalDeposits = 1e20 * (uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees))) / getMarkPrice();
 
     epochData[isShort].oi -= perpPositions[id].size;
 
@@ -1093,8 +1104,33 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     uint liquidationFee = perpPositions[id].margin * feeLiquidation / divisor;
 
     epochData[isShort].margin -= perpPositions[id].margin;
-    epochData[isShort].activeDeposits -= perpPositions[id].size / 10 ** 2;
-    epochData[isShort].totalDeposits += (perpPositions[id].size / 10 ** 2) + perpPositions[id].margin - liquidationFee;
+
+    uint closingFees = calcFees(false, perpPositions[id].size / 10 ** 2);
+
+    int funding = getPositionFunding(id);
+
+    int pnl = getPositionPnl(id);
+
+    console.log('KOO');
+
+    console.log('ACTIVE DEPOSITS');
+    console.log(epochData[isShort].activeDeposits);
+
+    console.log('TO SUBTRACT LONG');
+    console.log(perpPositions[id].size / 10 ** 2);
+    console.log('TO SUBTRACT SHORT');
+    console.log(1e20 * (perpPositions[id].size / 10 ** 2) / getMarkPrice());
+    console.log('IS SHORT?');
+    console.log(isShort);
+
+    if (isShort) epochData[isShort].activeDeposits -= perpPositions[id].size / 10 ** 2;
+    else epochData[isShort].activeDeposits -= 1e20 * (perpPositions[id].size / 10 ** 2) / getMarkPrice();
+
+    console.log('DOO');
+
+    if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees));
+    else epochData[isShort].totalDeposits = 1e20 * (uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees))) / getMarkPrice();
+
     epochData[isShort].oi -= perpPositions[id].size;
     epochData[isShort].positions -= perpPositions[id].positions;
 
