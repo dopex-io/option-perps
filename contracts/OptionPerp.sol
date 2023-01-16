@@ -152,6 +152,8 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     int pnl;
     // Opened at timestamp
     uint openedAt;
+    // Deposits allocated
+    uint allocatedDeposits;
   }
 
   struct PendingWithdrawal {
@@ -341,35 +343,16 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     // we use !isQuote to get PnL of traders
     int unrealizedPnl = (isQuote ? (currentPrice - averageOpenPrice) : (averageOpenPrice - currentPrice)) * (int(epochData[!isQuote].positions) / 10 ** 2) / int(divisor);
 
+    console.log('LP');
+    console.log('TOTAL DEPOSITS');
+    console.log(epochData[isQuote].totalDeposits);
+    console.logInt(isQuote ? unrealizedPnl : ((unrealizedPnl * 10 ** 2) * 10 ** 18) / currentPrice);
+
     // totalDeposits is ie6 for isQuote, ie18 for isBase
     int deposits = int(epochData[isQuote].totalDeposits) - (isQuote ? unrealizedPnl : ((unrealizedPnl * 10 ** 2) * 10 ** 18) / currentPrice);
 
-    console.log('Current price');
-    console.logInt(currentPrice);
-
-    console.log('Average open price');
-    console.log(epochData[!isQuote].averageOpenPrice);
-
-    console.log('Total Deposits');
-    console.log(epochData[isQuote].totalDeposits);
-
-    console.log('Unrealized pnl');
-    console.logInt(unrealizedPnl);
-
-    console.log('Deposits');
-    console.logInt(deposits);
-
-    console.log('Amount in');
-    console.log(amountIn);
-
-    console.log('Total supply');
-    console.log(getTotalSupply(isQuote));
-
     if (deposits == 0) amountOut = amountIn;
     else amountOut = (amountIn * getTotalSupply(isQuote)) / uint(deposits);
-
-    console.log('Amount out');
-    console.log(amountOut);
   }
 
   /// @notice External function to deposit base or quote liquidity
@@ -381,16 +364,17 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   ) external nonReentrant() {
     _whenNotPaused();
 
-    console.log('DEPOSITS');
+    console.log('TOTAL DEPOSITS BEFORE DEPOSIT BASE');
+    console.log(epochData[false].totalDeposits);
+
+    console.log('TOTAL DEPOSITS BEFORE DEPOSIT QUOTE');
+    console.log(epochData[true].totalDeposits);
+
+    console.log('AMOUNT IN');
+    console.log(amountIn);
 
     uint amountOut = calcLpAmount(isQuote, uint(amountIn));
     epochData[isQuote].totalDeposits += uint(amountIn);
-
-    console.log('TOTAL DEPOSIT NOW');
-    console.log(epochData[isQuote].totalDeposits);
-
-    console.log("AMOUNT OUT");
-    console.log(amountOut);
 
     if (isQuote) {
       quote.safeTransferFrom(msg.sender, address(this), amountIn);
@@ -399,6 +383,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       base.safeTransferFrom(msg.sender, address(this), amountIn);
       baseLpPositionMinter.mint(msg.sender, amountOut);
     }
+
+    console.log('TOTAL DEPOSITS AFTER DEPOSIT BASE');
+    console.log(epochData[false].totalDeposits);
+
+    console.log('TOTAL DEPOSITS AFTER DEPOSIT QUOTE');
+    console.log(epochData[true].totalDeposits);
 
     emit Deposit(
       isQuote,
@@ -457,9 +447,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     withdrawalRequestsCounter += 1;
 
     id = withdrawalRequestsCounter - 1;
-
-    console.log('ID TO WITHDRAW');
-    console.log(id);
   }
 
   /// @notice Public function to fulfill a withdrawal request
@@ -492,14 +479,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     if (pendingWithdrawal.isQuote) {
       quoteLpPositionMinter.burnFromOptionPerp(pendingWithdrawal.user, pendingWithdrawal.amountIn);
-
-      console.log('IS QUOTE');
-      console.log('AMOUNT IN');
-      console.log(pendingWithdrawal.amountIn);
-      console.log('AVAILABLE');
-      console.log(available);
-      console.log('TOTAL SUPPLY');
-      console.log(getTotalSupply(pendingWithdrawal.isQuote));
 
       amountOut = (pendingWithdrawal.amountIn * deposits) / totalSupply;
       require(amountOut <= available, "Insufficient liquidity");
@@ -610,12 +589,11 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       "Not enough liquidity to open position"
     );
 
-    console.log('isShort');
-    console.log(isShort);
-    console.log('Total deposits');
-    console.log(epochData[isShort].totalDeposits);
-    console.log('Total active');
-    console.log(epochData[isShort].activeDeposits);
+    console.log('TOTAL DEPOSIT BEFORE LONG');
+    console.log(epochData[false].totalDeposits);
+
+    console.log('TOTAL DEPOSIT BEFORE SHORT');
+    console.log(epochData[true].totalDeposits);
 
     // Calculate premium for ATM option in USD
     // If is short, premium is in quote.decimals(). if long, base.decimals();
@@ -653,10 +631,11 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     epochData[isShort].premium           += premium;
     epochData[isShort].openingFees       += openingFees;
 
-    if (isShort) epochData[isShort].activeDeposits += size / 10 ** 2;
-    else epochData[isShort].activeDeposits += 1e20 * (size / 10 ** 2) / getMarkPrice();
+    uint allocatedDeposits = isShort ? size / 10 ** 2 : 1e20 * (size / 10 ** 2) / getMarkPrice();
 
-    epochData[isShort].positions         += positions;
+    epochData[isShort].activeDeposits += allocatedDeposits;
+
+    epochData[isShort].positions += positions;
 
     if (epochData[isShort].averageOpenPrice == 0)
       epochData[isShort].averageOpenPrice  = getMarkPrice();
@@ -674,10 +653,6 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     // Generate perp position NFT
     id = perpPositionMinter.mint(msg.sender);
-    console.log("Minted to");
-    console.log(msg.sender);
-    console.log("Minter");
-    console.log(address(perpPositionMinter));
 
     perpPositions[id] = PerpPosition({
       isOpen: true,
@@ -691,7 +666,8 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       closingFees: 0,
       funding: 0,
       pnl: 0,
-      openedAt: block.timestamp
+      openedAt: block.timestamp,
+      allocatedDeposits: allocatedDeposits
     });
 
     // Emit open perp position event
@@ -702,6 +678,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
       msg.sender,
       id
     );
+
+    console.log('TOTAL DEPOSIT AFTER LONG');
+    console.log(epochData[false].totalDeposits);
+
+    console.log('TOTAL DEPOSIT AFTER SHORT');
+    console.log(epochData[true].totalDeposits);
   }
 
   /// @notice External function to change the size of a position (it closes the existing position and creates a new one)
@@ -953,7 +935,13 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
   view
   returns (uint price) {
     int netMargin = getPositionNetMargin(id);
+
+    console.log('NET MARGIN');
+    console.logInt(netMargin);
+
     netMargin -= netMargin * int(liquidationThreshold / (divisor * 100));
+
+    console.logInt(netMargin);
 
     if (netMargin < 0) netMargin = 0;
 
@@ -1042,15 +1030,38 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
 
     epochData[isShort].margin -= perpPositions[id].margin;
 
-    console.log('POS');
+    console.log('KOS1');
 
-    if (isShort) epochData[isShort].activeDeposits -= perpPositions[id].size / 10 ** 2;
-    else epochData[isShort].activeDeposits -= 1e20 * (perpPositions[id].size / 10 ** 2) / getMarkPrice();
+    epochData[isShort].activeDeposits -= perpPositions[id].allocatedDeposits;
 
-    console.log(epochData[isShort].totalDeposits);
+    console.log('IS SHORT?');
+    console.log(isShort);
 
-    if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees));
-    else epochData[isShort].totalDeposits = 1e20 * (uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees))) / getMarkPrice();
+    console.log('TOTAL DEPOSIT BEFORE LONG');
+    console.log(epochData[false].totalDeposits);
+
+    console.log('TOTAL DEPOSIT BEFORE SHORT');
+    console.log(epochData[true].totalDeposits);
+
+    console.log('PNL');
+    console.logInt(pnl);
+
+    console.log('FUNDING');
+    console.logInt(funding);
+
+    console.log('CLOSING FEES');
+    console.log(closingFees);
+
+    // If user goes long we reserve ETH (base)
+
+    if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - (pnl + funding + int(closingFees)));
+    else epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - int(1e20) * (pnl + funding + int(closingFees)) / int(getMarkPrice()));
+
+    console.log('TOTAL DEPOSIT AFTER LONG');
+    console.log(epochData[false].totalDeposits);
+
+    console.log('TOTAL DEPOSIT AFTER SHORT');
+    console.log(epochData[true].totalDeposits);
 
     epochData[isShort].oi -= perpPositions[id].size;
 
@@ -1123,13 +1134,12 @@ contract OptionPerp is Ownable, Pausable, ReentrancyGuard {
     console.log('IS SHORT?');
     console.log(isShort);
 
-    if (isShort) epochData[isShort].activeDeposits -= perpPositions[id].size / 10 ** 2;
-    else epochData[isShort].activeDeposits -= 1e20 * (perpPositions[id].size / 10 ** 2) / getMarkPrice();
+    epochData[isShort].activeDeposits -= perpPositions[id].allocatedDeposits;
 
     console.log('DOO');
 
-    if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees));
-    else epochData[isShort].totalDeposits = 1e20 * (uint(int(epochData[isShort].totalDeposits) - pnl + funding + int(closingFees))) / getMarkPrice();
+    if (isShort) epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - (pnl + funding + int(closingFees)));
+    else epochData[isShort].totalDeposits = uint(int(epochData[isShort].totalDeposits) - int(1e20) * (pnl + funding + int(closingFees)) / int(getMarkPrice()));
 
     epochData[isShort].oi -= perpPositions[id].size;
     epochData[isShort].positions -= perpPositions[id].positions;
